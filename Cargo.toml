@@ -1,0 +1,57 @@
+[package]
+name = "sequence_back"
+version = "0.1.0"
+authors = ["Pierre Marijon <pierre@marijon.fr>"]
+edition = "2021"
+description = "Rewrite of sequence_back to try improve performance"
+rust-version = "1.65"
+
+homepage = "https://github.com/natir/sequence_back"
+repository = "https://github.com/natir/sequence_back"
+documentation = "https://natir.github.io/sequence_back/sequence_back"
+
+readme = "Readme.md"
+license-file = "LICENSE"
+
+
+[dependencies]
+ahash          = { version = "0.8.6" }
+
+# IO management
+niffler        = { version = "2" }
+noodles        = { version = "0.57", features = ["fasta", "fastq"]}
+
+# Parallel management
+rayon          = { version = "1" }
+
+# CLI management
+clap           = { version = "4", features = ["derive"] }
+
+
+# Error management
+thiserror      = { version = "1" }
+anyhow         = { version = "1"}
+
+
+# Logging and error management
+log            = { version = "0.4" }
+stderrlog      = { version = "0.5" }
+
+[dev-dependencies]
+criterion      = { version = "0.4" }
+tempfile       = { version = "3" }
+rand           = { version = "0.8" }
+assert_cmd     = { version = "2" }
+
+
+[profile.release]
+lto = 'thin'
+opt-level = 3
+overflow-checks = false
+panic = 'abort'
+incremental = false
+
+
+[profile.profiling]
+inherits = "release"
+debug = true
