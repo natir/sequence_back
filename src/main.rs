@@ -1,4 +1,4 @@
-//! Rewrite of sequence_back to try improve performance
+//! Rewrite of back_to_sequence to try improve performance
 
 #![warn(missing_docs)]
 
@@ -26,6 +26,10 @@ fn main() -> error::Result<()> {
         .timestamp(params.timestamp())
         .init()
         .context("stderrlog already create a logger")?;
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(params.threads())
+        .build_global()?;
 
     log::info!("Start build hash_set");
     let mut kmer_set = KmerCounter::from_stream(

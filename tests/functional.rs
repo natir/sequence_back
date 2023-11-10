@@ -41,6 +41,8 @@ Options:
           Query the reverse complement of reads. Useless without the --stranded option
   -b, --record-buffer <RECORD_BUFFER>
           Control size of record buffer [default: 8192]
+  -t, --threads <THREADS>
+          Number of theard use 0 use all avaible core, default value 0 [default: 0]
   -q, --quiet
           Silence all output
   -v, --verbosity...

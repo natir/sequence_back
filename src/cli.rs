@@ -61,6 +61,10 @@ pub struct Command {
     record_buffer: u64,
 
     /* General option */
+    /// Number of theard use 0 use all avaible core, default value 0
+    #[clap(short = 't', long = "threads", default_value_t = 0)]
+    threads: usize,
+
     /// Silence all output
     #[clap(short = 'q', long = "quiet")]
     quiet: bool,
@@ -141,6 +145,11 @@ impl Command {
         self.query_reverse
     }
 
+    /// Get number of threads
+    pub fn threads(&self) -> usize {
+        self.threads
+    }
+
     /// Get verbosity level
     pub fn verbosity(&self) -> usize {
         self.verbosity as usize
@@ -192,6 +201,7 @@ mod tests {
         assert!(!params.query_reverse());
         assert_eq!(params.record_buffer, 8192);
 
+        assert_eq!(params.threads(), 0);
         assert!(!params.quiet());
         assert_eq!(params.verbosity(), 0);
         assert!(matches!(params.timestamp(), stderrlog::Timestamp::Off));
@@ -230,6 +240,8 @@ mod tests {
             "-r".as_ref(),
             "-b".as_ref(),
             "42".as_ref(),
+            "-t".as_ref(),
+            "4".as_ref(),
             "-q".as_ref(),
             "-vvvv".as_ref(),
             "-T".as_ref(),
@@ -248,6 +260,7 @@ mod tests {
         assert!(params.query_reverse());
         assert_eq!(params.record_buffer(), 42);
 
+        assert_eq!(params.threads(), 4);
         assert!(params.quiet());
         assert_eq!(params.verbosity(), 4);
         assert!(matches!(
