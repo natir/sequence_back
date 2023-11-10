@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sequence_back":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.73.0/core/convert/trait.From.html\" title=\"trait core::convert::From\">From</a>&lt;<a class=\"struct\" href=\"https://docs.rs/log/0.4.20/log/struct.SetLoggerError.html\" title=\"struct log::SetLoggerError\">SetLoggerError</a>&gt; for <a class=\"enum\" href=\"sequence_back/error/enum.Error.html\" title=\"enum sequence_back::error::Error\">Error</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
