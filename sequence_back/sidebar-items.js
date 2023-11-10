@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["cli","error","format","io","kmer_set","tokenizer"],"type":["Kmer"]};
+window.SIDEBAR_ITEMS = {"mod":["cli","error","format","io","kmer_counter","tokenizer"],"type":["Kmer"]};

@@ -365,8 +365,8 @@
     }
 
     <span class="doccomment">/// Get kmers writer
-    </span><span class="kw">pub fn </span>output_kmers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;std::io::BufReader&lt;<span class="kw">dyn </span>std::io::Read&gt;&gt;&gt; {
-        <span class="prelude-val">Ok</span>(Box::new(std::io::BufReader::new(std::fs::File::create(
+    </span><span class="kw">pub fn </span>output_kmers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;std::io::BufWriter&lt;<span class="kw">dyn </span>std::io::Write&gt;&gt;&gt; {
+        <span class="prelude-val">Ok</span>(Box::new(std::io::BufWriter::new(std::fs::File::create(
             <span class="kw-2">&amp;</span><span class="self">self</span>.output_kmers,
         )<span class="question-mark">?</span>)))
     }

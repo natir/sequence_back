@@ -530,19 +530,51 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Specialize an HashSet to get intresting kmer.
 
 </span><span class="comment">/* std use */
 </span><span class="kw">use </span>std::io::Read <span class="kw">as _</span>;
 
 <span class="comment">/* crate use */
-</span><span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>atomic_counter::AtomicCounter;
+<span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 
 <span class="comment">/* project use */
 </span><span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::format;
 <span class="kw">use </span><span class="kw">crate</span>::get_tokenizer;
-<span class="kw">use </span><span class="kw">crate</span>::kmer_set;
+<span class="kw">use </span><span class="kw">crate</span>::kmer_counter;
 
 <span class="doccomment">/// Populate record buffer with content of iterator
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fasta_populate_buffer&lt;R&gt;(
@@ -594,7 +626,7 @@
 </span><span class="kw">pub fn </span>filter_reads&lt;R, W&gt;(
     <span class="kw-2">mut </span>input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -610,7 +642,7 @@
         format::ReadsFormat::Fasta =&gt; filter_fasta_reads(
             std::io::Cursor::new([<span class="string">b&#39;&gt;&#39;</span>]).chain(input),
             output,
-            kmer_set,
+            kmer_counter,
             kmer_size,
             min_threshold,
             max_threshold,
@@ -621,7 +653,7 @@
         format::ReadsFormat::Fastq =&gt; filter_fastq_reads(
             std::io::Cursor::new([<span class="string">b&#39;@&#39;</span>]).chain(input),
             output,
-            kmer_set,
+            kmer_counter,
             kmer_size,
             min_threshold,
             max_threshold,
@@ -636,7 +668,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_fasta_reads&lt;R, W&gt;(
     input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -667,7 +699,10 @@
 
                 <span class="kw">let </span>valid_kmer = get_tokenizer(<span class="kw-2">&amp;</span>norm_seq, kmer_size, stranded, reverse)
                     .unwrap()
-                    .filter(|a| kmer_set.contains(a))
+                    .filter(|kmer| kmer_counter.contains_key(kmer))
+                    .inspect(|kmer| {
+                        kmer_counter.get(kmer).unwrap().inc();
+                    })
                     .count() <span class="kw">as </span>f64;
 
                 <span class="kw">let </span>total_kmer: f64 = record.sequence().len() <span class="kw">as </span>f64 - kmer_size <span class="kw">as </span>f64 + <span class="number">1.0</span>;
@@ -696,7 +731,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_fastq_reads&lt;R, W&gt;(
     input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -724,7 +759,10 @@
 
                 <span class="kw">let </span>valid_kmer = get_tokenizer(<span class="kw-2">&amp;</span>norm_seq, kmer_size, stranded, reverse)
                     .unwrap()
-                    .filter(|a| kmer_set.contains(a))
+                    .filter(|kmer| kmer_counter.contains_key(kmer))
+                    .inspect(|kmer| {
+                        kmer_counter.get(kmer).unwrap().inc();
+                    })
                     .count() <span class="kw">as </span>f64;
 
                 <span class="kw">let </span>total_kmer: f64 = record.sequence().len() <span class="kw">as </span>f64 - kmer_size <span class="kw">as </span>f64 + <span class="number">1.0</span>;
@@ -818,11 +856,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
         </span><span class="kw">fn </span>filter_reads() -&gt; error::Result&lt;()&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
             <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+            <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTA_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fasta_reads(
                 FASTA,
                 writer,
-                FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+                <span class="kw-2">&amp;mut </span>counter,
                 <span class="number">15</span>,
                 <span class="number">0.0</span>,
                 <span class="number">100.0</span>,
@@ -842,11 +884,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
 
             <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
             <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+            <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTA_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fasta_reads(
                 FASTA,
                 writer,
-                FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+                <span class="kw-2">&amp;mut </span>counter,
                 <span class="number">15</span>,
                 <span class="number">2.0</span>,
                 <span class="number">100.0</span>,
@@ -951,11 +997,15 @@ RSO8jKE0{jQ&lt;_^AS`}Vp$5/&lt;a]G}%qx;Eian&lt;+vqt.WHXoKSV]9ASb%$|E*tO#&gt;l$I6b
         </span><span class="kw">fn </span>filter_reads() -&gt; error::Result&lt;()&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
             <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+            <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTQ_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fastq_reads(
                 FASTQ,
                 writer,
-                FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+                <span class="kw-2">&amp;mut </span>counter,
                 <span class="number">15</span>,
                 <span class="number">0.0</span>,
                 <span class="number">100.0</span>,
@@ -979,11 +1029,15 @@ TCAGGGGTGCCTCATAGGGTCCCCTCCCCCGGGCCCGTTGTTATAACTTTTGCACGTAACCCTATGGAACTGCTAAGCGT
 
             <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
             <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+            <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTQ_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fastq_reads(
                 FASTQ,
                 writer,
-                FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+                <span class="kw-2">&amp;mut </span>counter,
                 <span class="number">15</span>,
                 <span class="number">3.0</span>,
                 <span class="number">100.0</span>,
@@ -1009,11 +1063,15 @@ TCAGGGGTGCCTCATAGGGTCCCCTCCCCCGGGCCCGTTGTTATAACTTTTGCACGTAACCCTATGGAACTGCTAAGCGT
     </span><span class="kw">fn </span>filter_reads_() -&gt; error::Result&lt;()&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
         <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+        <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTA_KMER
+            .iter()
+            .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+            .collect();
 
         filter_reads(
             FASTA,
             writer,
-            FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+            <span class="kw-2">&amp;mut </span>counter,
             <span class="number">15</span>,
             <span class="number">0.0</span>,
             <span class="number">100.0</span>,
@@ -1033,11 +1091,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
 
         <span class="kw">let </span><span class="kw-2">mut </span>output = Vec::new();
         <span class="kw">let </span>writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(<span class="kw-2">&amp;mut </span>output)));
+        <span class="kw">let </span><span class="kw-2">mut </span>counter = FASTQ_KMER
+            .iter()
+            .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+            .collect();
 
         filter_reads(
             FASTQ,
             writer,
-            FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+            <span class="kw-2">&amp;mut </span>counter,
             <span class="number">15</span>,
             <span class="number">0.0</span>,
             <span class="number">100.0</span>,
