@@ -13,52 +13,46 @@ use crate::format;
 use crate::get_tokenizer;
 use crate::kmer_counter;
 
-/// Populate record buffer with content of iterator
-pub(crate) fn fasta_populate_buffer<R>(
-    iter: &mut noodles::fasta::reader::Records<'_, R>,
-    records: &mut Vec<noodles::fasta::Record>,
-    record_buffer: u64,
-) -> bool
-where
-    R: std::io::BufRead,
-{
-    records.clear();
+macro_rules! populate_buffer {
+    ($name:ident, $iterator_ty:ty, $records_ty:ty) => {
+        /// Populate record buffer with content of iterator
+        pub(crate) fn $name<R>(
+            iter: &mut $iterator_ty,
+            records: &mut $records_ty,
+            record_buffer: u64,
+        ) -> bool
+        where
+            R: std::io::BufRead,
+        {
+            records.clear();
 
-    for i in 0..record_buffer {
-        if let Some(Ok(record)) = iter.next() {
-            records.push(record);
-        } else {
-            records.truncate(i as usize);
-            return false;
+            for i in 0..record_buffer {
+                if let Some(Ok(record)) = iter.next() {
+                    records.push(record);
+                } else {
+                    records.truncate(i as usize);
+                    return false;
+                }
+            }
+
+            true
         }
-    }
-
-    true
+    };
 }
 
-/// Populate record buffer with content of iterator
-pub(crate) fn fastq_populate_buffer<R>(
-    iter: &mut noodles::fastq::reader::Records<'_, R>,
-    records: &mut Vec<noodles::fastq::Record>,
-    record_buffer: u64,
-) -> bool
-where
-    R: std::io::BufRead,
-{
-    records.clear();
+populate_buffer!(
+    fasta_populate_buffer,
+    noodles::fasta::reader::Records<'_, R>,
+    Vec<noodles::fasta::Record>
+);
 
-    for i in 0..record_buffer {
-        if let Some(Ok(record)) = iter.next() {
-            records.push(record);
-        } else {
-            records.truncate(i as usize);
-            return false;
-        }
-    }
+populate_buffer!(
+    fastq_populate_buffer,
+    noodles::fastq::reader::Records<'_, R>,
+    Vec<noodles::fastq::Record>
+);
 
-    true
-}
-
+#[allow(clippy::too_many_arguments)]
 /// Filter reads by kmer
 pub fn filter_reads<R, W>(
     mut input: R,
@@ -101,125 +95,92 @@ where
     }
 }
 
-/// Filter fasta reads by kmer
-pub(crate) fn filter_fasta_reads<R, W>(
-    input: R,
-    output: W,
-    kmer_counter: &mut kmer_counter::KmerCounter,
-    kmer_size: u64,
-    min_threshold: f64,
-    max_threshold: f64,
-    stranded: bool,
-    reverse: bool,
-    record_buffer_len: u64,
-) -> error::Result<()>
-where
-    R: std::io::BufRead,
-    W: std::io::Write,
-{
-    let mut reader = noodles::fasta::Reader::new(input);
-    let mut writer = noodles::fasta::Writer::new(output);
-    let mut iter = reader.records();
-    let mut records = Vec::with_capacity(record_buffer_len as usize);
+macro_rules! filter_reads {
+    ( $type:ident, $name:ident, $reader_type:ty, $writer_type:ty, $populate:ident, $record_ty:ty) => {
+        #[allow(clippy::too_many_arguments)]
+        /// Filter $type reads by kmer
+        pub(crate) fn $name<R, W>(
+            input: R,
+            output: W,
+            kmer_counter: &mut kmer_counter::KmerCounter,
+            kmer_size: u64,
+            min_threshold: f64,
+            max_threshold: f64,
+            stranded: bool,
+            reverse: bool,
+            record_buffer_len: u64,
+        ) -> error::Result<()>
+        where
+            R: std::io::BufRead,
+            W: std::io::Write,
+        {
+            let mut reader = <$reader_type>::new(input);
+            let mut writer = <$writer_type>::new(output);
+            let mut iter = reader.records();
+            let mut records = Vec::with_capacity(record_buffer_len as usize);
 
-    let mut end = true;
-    while end {
-        log::info!("Start read record");
-        end = fasta_populate_buffer(&mut iter, &mut records, record_buffer_len);
-        log::info!("End read record");
-        log::info!("Populate buffer with {} record", records.len());
+            let mut end = true;
+            while end {
+                log::info!("Start read record");
+                end = $populate(&mut iter, &mut records, record_buffer_len);
+                log::info!("End read record");
+                log::info!("Populate buffer with {} record", records.len());
 
-        let filterd_records: Vec<&noodles::fasta::Record> = records
-            .par_iter()
-            .filter_map(|record| {
-                let norm_seq = record.sequence().as_ref().to_ascii_uppercase();
+                let filterd_records: $record_ty = records
+                    .par_iter()
+                    .filter_map(|record| {
+                        let norm_seq = record.sequence().as_ref().to_ascii_uppercase();
 
-                let valid_kmer = get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
-                    .unwrap()
-                    .filter(|kmer| kmer_counter.contains_key(kmer))
-                    .inspect(|kmer| {
-                        kmer_counter.get(kmer).unwrap().inc();
+                        let valid_kmer = get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
+                            .unwrap()
+                            .filter(|kmer| kmer_counter.contains_key(kmer))
+                            .inspect(|kmer| {
+                                kmer_counter.get(kmer).unwrap().inc();
+                            })
+                            .count() as f64;
+
+                        let total_kmer: f64 =
+                            record.sequence().len() as f64 - kmer_size as f64 + 1.0;
+                        let ratio: f64 = valid_kmer / total_kmer * 100.0;
+
+                        if ratio > min_threshold && ratio < max_threshold {
+                            Some(record)
+                        } else {
+                            None
+                        }
                     })
-                    .count() as f64;
+                    .collect();
+                log::info!("{} filtred record", filterd_records.len());
 
-                let total_kmer: f64 = record.sequence().len() as f64 - kmer_size as f64 + 1.0;
-                let ratio: f64 = valid_kmer / total_kmer * 100.0;
-
-                if ratio > min_threshold && ratio < max_threshold {
-                    Some(record)
-                } else {
-                    None
+                log::info!("Start write record");
+                for record in filterd_records {
+                    writer.write_record(record)?;
                 }
-            })
-            .collect();
-        log::info!("{} filtred record", filterd_records.len());
+                log::info!("End write record");
+            }
 
-        log::info!("Start write record");
-        for record in filterd_records {
-            writer.write_record(record)?;
+            Ok(())
         }
-        log::info!("End write record");
-    }
-
-    Ok(())
+    };
 }
 
-/// Filter fastq reads by kmer
-pub(crate) fn filter_fastq_reads<R, W>(
-    input: R,
-    output: W,
-    kmer_counter: &mut kmer_counter::KmerCounter,
-    kmer_size: u64,
-    min_threshold: f64,
-    max_threshold: f64,
-    stranded: bool,
-    reverse: bool,
-    record_buffer_len: u64,
-) -> error::Result<()>
-where
-    R: std::io::BufRead,
-    W: std::io::Write,
-{
-    let mut reader = noodles::fastq::Reader::new(input);
-    let mut writer = noodles::fastq::Writer::new(output);
-    let mut iter = reader.records();
-    let mut records = Vec::with_capacity(record_buffer_len as usize);
+filter_reads!(
+    fasta,
+    filter_fasta_reads,
+    noodles::fasta::Reader<R>,
+    noodles::fasta::Writer<W>,
+    fasta_populate_buffer,
+    Vec<&noodles::fasta::Record>
+);
 
-    let mut end = true;
-    while end {
-        end = fastq_populate_buffer(&mut iter, &mut records, record_buffer_len);
-
-        let filterd_records: Vec<&noodles::fastq::Record> = records
-            .par_iter()
-            .filter_map(|record| {
-                let norm_seq = record.sequence().as_ref().to_ascii_uppercase();
-
-                let valid_kmer = get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
-                    .unwrap()
-                    .filter(|kmer| kmer_counter.contains_key(kmer))
-                    .inspect(|kmer| {
-                        kmer_counter.get(kmer).unwrap().inc();
-                    })
-                    .count() as f64;
-
-                let total_kmer: f64 = record.sequence().len() as f64 - kmer_size as f64 + 1.0;
-                let ratio: f64 = valid_kmer / total_kmer * 100.0;
-
-                if ratio > min_threshold && ratio < max_threshold {
-                    Some(record)
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        for record in filterd_records {
-            writer.write_record(record)?;
-        }
-    }
-
-    Ok(())
-}
+filter_reads!(
+    fastq,
+    filter_fastq_reads,
+    noodles::fastq::Reader<R>,
+    noodles::fastq::Writer<W>,
+    fastq_populate_buffer,
+    Vec<&noodles::fastq::Record>
+);
 
 #[cfg(test)]
 mod tests {
