@@ -258,6 +258,19 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Command Line Interface declaration of project sequence_back
 
 </span><span class="comment">/* std use */
@@ -321,7 +334,11 @@
     </span>record_buffer: u64,
 
     <span class="comment">/* General option */
-    </span><span class="doccomment">/// Silence all output
+    </span><span class="doccomment">/// Number of theard use 0 use all avaible core, default value 0
+    </span><span class="attr">#[clap(short = <span class="string">&#39;t&#39;</span>, long = <span class="string">&quot;threads&quot;</span>, default_value_t = <span class="number">0</span>)]
+    </span>threads: usize,
+
+    <span class="doccomment">/// Silence all output
     </span><span class="attr">#[clap(short = <span class="string">&#39;q&#39;</span>, long = <span class="string">&quot;quiet&quot;</span>)]
     </span>quiet: bool,
 
@@ -401,6 +418,11 @@
         <span class="self">self</span>.query_reverse
     }
 
+    <span class="doccomment">/// Get number of threads
+    </span><span class="kw">pub fn </span>threads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.threads
+    }
+
     <span class="doccomment">/// Get verbosity level
     </span><span class="kw">pub fn </span>verbosity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.verbosity <span class="kw">as </span>usize
@@ -452,6 +474,7 @@
         <span class="macro">assert!</span>(!params.query_reverse());
         <span class="macro">assert_eq!</span>(params.record_buffer, <span class="number">8192</span>);
 
+        <span class="macro">assert_eq!</span>(params.threads(), <span class="number">0</span>);
         <span class="macro">assert!</span>(!params.quiet());
         <span class="macro">assert_eq!</span>(params.verbosity(), <span class="number">0</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(params.timestamp(), stderrlog::Timestamp::Off));
@@ -490,6 +513,8 @@
             <span class="string">&quot;-r&quot;</span>.as_ref(),
             <span class="string">&quot;-b&quot;</span>.as_ref(),
             <span class="string">&quot;42&quot;</span>.as_ref(),
+            <span class="string">&quot;-t&quot;</span>.as_ref(),
+            <span class="string">&quot;4&quot;</span>.as_ref(),
             <span class="string">&quot;-q&quot;</span>.as_ref(),
             <span class="string">&quot;-vvvv&quot;</span>.as_ref(),
             <span class="string">&quot;-T&quot;</span>.as_ref(),
@@ -508,6 +533,7 @@
         <span class="macro">assert!</span>(params.query_reverse());
         <span class="macro">assert_eq!</span>(params.record_buffer(), <span class="number">42</span>);
 
+        <span class="macro">assert_eq!</span>(params.threads(), <span class="number">4</span>);
         <span class="macro">assert!</span>(params.quiet());
         <span class="macro">assert_eq!</span>(params.verbosity(), <span class="number">4</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(
