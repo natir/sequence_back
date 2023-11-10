@@ -16,6 +16,7 @@ license-file = "LICENSE"
 
 [dependencies]
 ahash          = { version = "0.8.6" }
+atomic-counter = { version = "1.0.1" }
 
 # IO management
 niffler        = { version = "2" }
@@ -27,11 +28,9 @@ rayon          = { version = "1" }
 # CLI management
 clap           = { version = "4", features = ["derive"] }
 
-
 # Error management
 thiserror      = { version = "1" }
 anyhow         = { version = "1"}
-
 
 # Logging and error management
 log            = { version = "0.4" }

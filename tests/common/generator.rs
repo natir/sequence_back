@@ -8,7 +8,7 @@ use rayon::slice::ParallelSliceMut;
 
 /* project use */
 use crate::common::constant;
-use sequence_back::kmer_set::{KmerSet, KmerSetTrait};
+use sequence_back::kmer_counter::{KmerCounter, KmerCounterTrait};
 
 /// Generate a RNG with constant::SEED
 pub fn rng() -> rand::rngs::StdRng {
@@ -90,7 +90,8 @@ pub fn kmer_from_fasta(
     kmer_size: u64,
     kmers_number: u64,
 ) -> Vec<u8> {
-    let mut kmerset = KmerSet::from_fasta_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
+    let mut kmerset =
+        KmerCounter::from_fasta_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
 
     let mut out_buffer = Vec::with_capacity(
         (kmer_size * kmers_number // sequence space
@@ -100,7 +101,7 @@ pub fn kmer_from_fasta(
      as usize,
     );
 
-    let mut kmers: Vec<Vec<u8>> = kmerset.drain().collect();
+    let mut kmers: Vec<Vec<u8>> = kmerset.drain().map(|(kmer, _count)| kmer).collect();
     kmers.par_sort_unstable();
 
     for (index, kmer) in kmers
@@ -126,7 +127,8 @@ pub fn kmer_from_fastq(
     kmer_size: u64,
     kmers_number: u64,
 ) -> Vec<u8> {
-    let mut kmerset = KmerSet::from_fastq_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
+    let mut kmerset =
+        KmerCounter::from_fastq_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
 
     let mut out_buffer = Vec::with_capacity(
         (kmer_size * kmers_number // sequence space
@@ -136,7 +138,7 @@ pub fn kmer_from_fastq(
      as usize,
     );
 
-    let mut kmers: Vec<Vec<u8>> = kmerset.drain().collect();
+    let mut kmers: Vec<Vec<u8>> = kmerset.drain().map(|(kmer, _count)| kmer).collect();
     kmers.par_sort_unstable();
 
     for (index, kmer) in kmers

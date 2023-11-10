@@ -12,7 +12,7 @@ use clap::Parser as _;
 use sequence_back::cli;
 use sequence_back::error;
 use sequence_back::io;
-use sequence_back::kmer_set::{KmerSet, KmerSetTrait};
+use sequence_back::{KmerCounter, KmerCounterTrait};
 
 fn main() -> error::Result<()> {
     // parse cli
@@ -28,7 +28,7 @@ fn main() -> error::Result<()> {
         .context("stderrlog already create a logger")?;
 
     log::info!("Start build hash_set");
-    let kmer_set = KmerSet::from_stream(
+    let mut kmer_set = KmerCounter::from_stream(
         params.input_kmers()?,
         params.kmer_size(),
         params.stranded(),
@@ -41,7 +41,7 @@ fn main() -> error::Result<()> {
     io::filter_reads(
         params.input_sequences()?,
         params.output_sequences()?,
-        kmer_set,
+        &mut kmer_set,
         params.kmer_size(),
         params.min_threshold(),
         params.max_threshold(),
@@ -50,6 +50,10 @@ fn main() -> error::Result<()> {
         params.record_buffer(),
     )?;
     log::info!("End filter reads");
+
+    log::info!("Start write kmer counts");
+    KmerCounter::to_csv(kmer_set, &mut params.output_kmers()?)?;
+    log::info!("End write kmer counts");
 
     Ok(())
 }

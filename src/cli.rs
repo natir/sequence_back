@@ -105,8 +105,8 @@ impl Command {
     }
 
     /// Get kmers writer
-    pub fn output_kmers(&self) -> Result<Box<std::io::BufReader<dyn std::io::Read>>> {
-        Ok(Box::new(std::io::BufReader::new(std::fs::File::create(
+    pub fn output_kmers(&self) -> Result<Box<std::io::BufWriter<dyn std::io::Write>>> {
+        Ok(Box::new(std::io::BufWriter::new(std::fs::File::create(
             &self.output_kmers,
         )?)))
     }

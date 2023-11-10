@@ -5,6 +5,7 @@ use std::io::Read as _;
 
 /* crate use */
 use ahash;
+use atomic_counter::AtomicCounter;
 use rayon::prelude::*;
 
 /* project use */
@@ -15,18 +16,18 @@ use crate::io;
 use crate::Kmer;
 
 /// Trait to add functionalty to AHashSet
-pub trait KmerSetTrait
+pub trait KmerCounterTrait
 where
     Self: Default,
 {
-    /// Build an KmerSet from stream
+    /// Build an KmerCounter from stream
     fn from_stream<R>(
         mut input: R,
         kmer_size: u64,
         stranded: bool,
         reverse: bool,
         record_buffer_len: u64,
-    ) -> error::Result<KmerSet>
+    ) -> error::Result<KmerCounter>
     where
         R: std::io::BufRead,
     {
@@ -48,19 +49,19 @@ where
         }
     }
 
-    /// Build an KmerSet from a fasta stream
+    /// Build an KmerCounter from a fasta stream
     fn from_fasta_stream<R>(
         input: R,
         kmer_size: u64,
         stranded: bool,
         reverse: bool,
         record_buffer_len: u64,
-    ) -> error::Result<KmerSet>
+    ) -> error::Result<KmerCounter>
     where
         R: std::io::BufRead,
     {
         let hasher = ahash::random_state::RandomState::with_seed(42);
-        let mut hash_set: KmerSet = KmerSet::with_capacity_and_hasher(65536, hasher);
+        let mut hash_set: KmerCounter = KmerCounter::with_capacity_and_hasher(65536, hasher);
         let mut reader = noodles::fasta::Reader::new(input);
         let mut iter = reader.records();
         let mut records = Vec::with_capacity(record_buffer_len as usize);
@@ -76,7 +77,8 @@ where
                         let norm_seq = record.sequence().as_ref().to_ascii_uppercase();
                         get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
                             .unwrap()
-                            .collect::<Vec<Vec<u8>>>()
+                            .map(|x| (x, atomic_counter::RelaxedCounter::default()))
+                            .collect::<Vec<(Vec<u8>, atomic_counter::RelaxedCounter)>>()
                     })
                     .flatten(),
             );
@@ -85,19 +87,19 @@ where
         Ok(hash_set)
     }
 
-    /// Build an KmerSet from a fastq stream
+    /// Build an KmerCounter from a fastq stream
     fn from_fastq_stream<R>(
         input: R,
         kmer_size: u64,
         stranded: bool,
         reverse: bool,
         record_buffer_len: u64,
-    ) -> error::Result<KmerSet>
+    ) -> error::Result<KmerCounter>
     where
         R: std::io::BufRead,
     {
         let hasher = ahash::random_state::RandomState::with_seed(42);
-        let mut hash_set: KmerSet = KmerSet::with_capacity_and_hasher(65536, hasher);
+        let mut hash_set: KmerCounter = KmerCounter::with_capacity_and_hasher(65536, hasher);
         let mut reader = noodles::fastq::Reader::new(input);
         let mut iter = reader.records();
         let mut records = Vec::with_capacity(record_buffer_len as usize);
@@ -113,7 +115,8 @@ where
                         let norm_seq = record.sequence().as_ref().to_ascii_uppercase();
                         get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
                             .unwrap()
-                            .collect::<Vec<Vec<u8>>>()
+                            .map(|x| (x, atomic_counter::RelaxedCounter::default()))
+                            .collect::<Vec<(Vec<u8>, atomic_counter::RelaxedCounter)>>()
                     })
                     .flatten(),
             );
@@ -121,12 +124,30 @@ where
 
         Ok(hash_set)
     }
+
+    /// Write
+    fn to_csv<W>(kmerset: KmerCounter, output: &mut W) -> error::Result<()>
+    where
+        W: std::io::Write,
+    {
+        writeln!(output, "kmer,count")?;
+        for (key, value) in kmerset {
+            writeln!(
+                output,
+                "{},{}",
+                std::str::from_utf8(&key).unwrap(),
+                value.get()
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Alias for AHashSet<Kmer>
-pub type KmerSet = ahash::AHashSet<Kmer>;
+pub type KmerCounter = ahash::AHashMap<Kmer, atomic_counter::RelaxedCounter>;
 
-impl KmerSetTrait for KmerSet {}
+impl KmerCounterTrait for KmerCounter {}
 
 #[cfg(test)]
 mod tests {
@@ -162,31 +183,83 @@ GGGG
 
     #[test]
     fn from_stream() -> error::Result<()> {
-        let kmerset = KmerSet::from_stream(FASTA_FILE, 4, true, false, 2)?;
+        let kmerset = KmerCounter::from_stream(FASTA_FILE, 4, true, false, 2)?;
 
-        assert_eq!(kmerset, KMERS.iter().map(|a| a.to_vec()).collect());
+        let mut kmers = kmerset.keys().cloned().collect::<Vec<Vec<u8>>>();
+        let mut truth = KMERS.iter().map(|a| a.to_vec()).collect::<Vec<Vec<u8>>>();
 
-        let kmerset = KmerSet::from_stream(FASTQ_FILE, 4, true, false, 2)?;
+        kmers.sort();
+        truth.sort();
 
-        assert_eq!(kmerset, KMERS.iter().map(|a| a.to_vec()).collect());
+        assert_eq!(kmers, truth);
+
+        let kmerset = KmerCounter::from_stream(FASTQ_FILE, 4, true, false, 2)?;
+
+        let mut kmers = kmerset.keys().cloned().collect::<Vec<Vec<u8>>>();
+        let mut truth = KMERS.iter().map(|a| a.to_vec()).collect::<Vec<Vec<u8>>>();
+
+        kmers.sort();
+        truth.sort();
+
+        assert_eq!(kmers, truth);
 
         Ok(())
     }
 
     #[test]
     fn from_fasta_stream() -> error::Result<()> {
-        let kmerset = KmerSet::from_fasta_stream(FASTA_FILE, 4, true, false, 2)?;
+        let kmerset = KmerCounter::from_fasta_stream(FASTA_FILE, 4, true, false, 2)?;
 
-        assert_eq!(kmerset, KMERS.iter().map(|a| a.to_vec()).collect());
+        let mut kmers = kmerset.keys().cloned().collect::<Vec<Vec<u8>>>();
+        let mut truth = KMERS.iter().map(|a| a.to_vec()).collect::<Vec<Vec<u8>>>();
+
+        kmers.sort();
+        truth.sort();
+
+        assert_eq!(kmers, truth);
 
         Ok(())
     }
 
     #[test]
     fn from_fastq_stream() -> error::Result<()> {
-        let kmerset = KmerSet::from_fastq_stream(FASTQ_FILE, 4, true, false, 2)?;
+        let kmerset = KmerCounter::from_fastq_stream(FASTQ_FILE, 4, true, false, 2)?;
 
-        assert_eq!(kmerset, KMERS.iter().map(|a| a.to_vec()).collect());
+        let mut kmers = kmerset.keys().cloned().collect::<Vec<Vec<u8>>>();
+        let mut truth = KMERS.iter().map(|a| a.to_vec()).collect::<Vec<Vec<u8>>>();
+
+        kmers.sort();
+        truth.sort();
+
+        assert_eq!(kmers, truth);
+
+        Ok(())
+    }
+
+    #[test]
+    fn to_csv() -> error::Result<()> {
+        let kmerset = KmerCounter::from_fastq_stream(FASTQ_FILE, 4, true, false, 2)?;
+        let mut output = Vec::new();
+
+        KmerCounter::to_csv(kmerset, &mut output)?;
+
+        let mut result = output
+            .split(|c| *c == b'\n')
+            .map(|x| x.to_vec())
+            .collect::<Vec<Vec<u8>>>();
+        result.sort();
+
+        assert_eq!(
+            result,
+            vec![
+                b"".to_vec(),
+                b"AAAA,0".to_vec(),
+                b"ACTG,0".to_vec(),
+                b"GGGG,0".to_vec(),
+                b"GTCA,0".to_vec(),
+                b"kmer,count".to_vec(),
+            ]
+        );
 
         Ok(())
     }

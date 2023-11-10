@@ -4,13 +4,14 @@
 use std::io::Read as _;
 
 /* crate use */
+use atomic_counter::AtomicCounter;
 use rayon::prelude::*;
 
 /* project use */
 use crate::error;
 use crate::format;
 use crate::get_tokenizer;
-use crate::kmer_set;
+use crate::kmer_counter;
 
 /// Populate record buffer with content of iterator
 pub(crate) fn fasta_populate_buffer<R>(
@@ -62,7 +63,7 @@ where
 pub fn filter_reads<R, W>(
     mut input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: &mut kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -78,7 +79,7 @@ where
         format::ReadsFormat::Fasta => filter_fasta_reads(
             std::io::Cursor::new([b'>']).chain(input),
             output,
-            kmer_set,
+            kmer_counter,
             kmer_size,
             min_threshold,
             max_threshold,
@@ -89,7 +90,7 @@ where
         format::ReadsFormat::Fastq => filter_fastq_reads(
             std::io::Cursor::new([b'@']).chain(input),
             output,
-            kmer_set,
+            kmer_counter,
             kmer_size,
             min_threshold,
             max_threshold,
@@ -104,7 +105,7 @@ where
 pub(crate) fn filter_fasta_reads<R, W>(
     input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: &mut kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -135,7 +136,10 @@ where
 
                 let valid_kmer = get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
                     .unwrap()
-                    .filter(|a| kmer_set.contains(a))
+                    .filter(|kmer| kmer_counter.contains_key(kmer))
+                    .inspect(|kmer| {
+                        kmer_counter.get(kmer).unwrap().inc();
+                    })
                     .count() as f64;
 
                 let total_kmer: f64 = record.sequence().len() as f64 - kmer_size as f64 + 1.0;
@@ -164,7 +168,7 @@ where
 pub(crate) fn filter_fastq_reads<R, W>(
     input: R,
     output: W,
-    kmer_set: kmer_set::KmerSet,
+    kmer_counter: &mut kmer_counter::KmerCounter,
     kmer_size: u64,
     min_threshold: f64,
     max_threshold: f64,
@@ -192,7 +196,10 @@ where
 
                 let valid_kmer = get_tokenizer(&norm_seq, kmer_size, stranded, reverse)
                     .unwrap()
-                    .filter(|a| kmer_set.contains(a))
+                    .filter(|kmer| kmer_counter.contains_key(kmer))
+                    .inspect(|kmer| {
+                        kmer_counter.get(kmer).unwrap().inc();
+                    })
                     .count() as f64;
 
                 let total_kmer: f64 = record.sequence().len() as f64 - kmer_size as f64 + 1.0;
@@ -286,11 +293,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
         fn filter_reads() -> error::Result<()> {
             let mut output = Vec::new();
             let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+            let mut counter = FASTA_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fasta_reads(
                 FASTA,
                 writer,
-                FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+                &mut counter,
                 15,
                 0.0,
                 100.0,
@@ -310,11 +321,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
 
             let mut output = Vec::new();
             let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+            let mut counter = FASTA_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fasta_reads(
                 FASTA,
                 writer,
-                FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+                &mut counter,
                 15,
                 2.0,
                 100.0,
@@ -419,11 +434,15 @@ RSO8jKE0{jQ<_^AS`}Vp$5/<a]G}%qx;Eian<+vqt.WHXoKSV]9ASb%$|E*tO#>l$I6bx_/o.h&_r%Z~
         fn filter_reads() -> error::Result<()> {
             let mut output = Vec::new();
             let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+            let mut counter = FASTQ_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fastq_reads(
                 FASTQ,
                 writer,
-                FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+                &mut counter,
                 15,
                 0.0,
                 100.0,
@@ -447,11 +466,15 @@ TCAGGGGTGCCTCATAGGGTCCCCTCCCCCGGGCCCGTTGTTATAACTTTTGCACGTAACCCTATGGAACTGCTAAGCGT
 
             let mut output = Vec::new();
             let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+            let mut counter = FASTQ_KMER
+                .iter()
+                .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+                .collect();
 
             filter_fastq_reads(
                 FASTQ,
                 writer,
-                FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+                &mut counter,
                 15,
                 3.0,
                 100.0,
@@ -477,11 +500,15 @@ TCAGGGGTGCCTCATAGGGTCCCCTCCCCCGGGCCCGTTGTTATAACTTTTGCACGTAACCCTATGGAACTGCTAAGCGT
     fn filter_reads_() -> error::Result<()> {
         let mut output = Vec::new();
         let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+        let mut counter = FASTA_KMER
+            .iter()
+            .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+            .collect();
 
         filter_reads(
             FASTA,
             writer,
-            FASTA_KMER.iter().map(|x| x.to_vec()).collect(),
+            &mut counter,
             15,
             0.0,
             100.0,
@@ -501,11 +528,15 @@ GAGCGCAGAAGACCACCAGAAGGATCTCAAGAAGGACCAGGTCAGAGTTAGGCATATTCCCGTTCGAGGCTGATATTGGC
 
         let mut output = Vec::new();
         let writer = Box::new(std::io::BufWriter::new(std::io::Cursor::new(&mut output)));
+        let mut counter = FASTQ_KMER
+            .iter()
+            .map(|x| (x.to_vec(), atomic_counter::RelaxedCounter::default()))
+            .collect();
 
         filter_reads(
             FASTQ,
             writer,
-            FASTQ_KMER.iter().map(|x| x.to_vec()).collect(),
+            &mut counter,
             15,
             0.0,
             100.0,
