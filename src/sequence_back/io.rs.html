@@ -522,45 +522,6 @@
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Specialize an HashSet to get intresting kmer.
 
 </span><span class="comment">/* std use */
@@ -576,53 +537,47 @@
 <span class="kw">use </span><span class="kw">crate</span>::get_tokenizer;
 <span class="kw">use </span><span class="kw">crate</span>::kmer_counter;
 
-<span class="doccomment">/// Populate record buffer with content of iterator
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fasta_populate_buffer&lt;R&gt;(
-    iter: <span class="kw-2">&amp;mut </span>noodles::fasta::reader::Records&lt;<span class="lifetime">&#39;_</span>, R&gt;,
-    records: <span class="kw-2">&amp;mut </span>Vec&lt;noodles::fasta::Record&gt;,
-    record_buffer: u64,
-) -&gt; bool
-<span class="kw">where
-    </span>R: std::io::BufRead,
-{
-    records.clear();
+<span class="macro">macro_rules! </span>populate_buffer {
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$iterator_ty</span>:ty, <span class="macro-nonterminal">$records_ty</span>:ty) =&gt; {
+        <span class="doccomment">/// Populate record buffer with content of iterator
+        </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span><span class="macro-nonterminal">$name</span>&lt;R&gt;(
+            iter: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$iterator_ty</span>,
+            records: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$records_ty</span>,
+            record_buffer: u64,
+        ) -&gt; bool
+        <span class="kw">where
+            </span>R: std::io::BufRead,
+        {
+            records.clear();
 
-    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..record_buffer {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(record)) = iter.next() {
-            records.push(record);
-        } <span class="kw">else </span>{
-            records.truncate(i <span class="kw">as </span>usize);
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        }
-    }
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..record_buffer {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(record)) = iter.next() {
+                    records.push(record);
+                } <span class="kw">else </span>{
+                    records.truncate(i <span class="kw">as </span>usize);
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
+            }
 
-    <span class="bool-val">true
-</span>}
+            <span class="bool-val">true
+        </span>}
+    };
+}
 
-<span class="doccomment">/// Populate record buffer with content of iterator
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fastq_populate_buffer&lt;R&gt;(
-    iter: <span class="kw-2">&amp;mut </span>noodles::fastq::reader::Records&lt;<span class="lifetime">&#39;_</span>, R&gt;,
-    records: <span class="kw-2">&amp;mut </span>Vec&lt;noodles::fastq::Record&gt;,
-    record_buffer: u64,
-) -&gt; bool
-<span class="kw">where
-    </span>R: std::io::BufRead,
-{
-    records.clear();
+<span class="macro">populate_buffer!</span>(
+    fasta_populate_buffer,
+    noodles::fasta::reader::Records&lt;<span class="lifetime">&#39;_</span>, R&gt;,
+    Vec&lt;noodles::fasta::Record&gt;
+);
 
-    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..record_buffer {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(record)) = iter.next() {
-            records.push(record);
-        } <span class="kw">else </span>{
-            records.truncate(i <span class="kw">as </span>usize);
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        }
-    }
+<span class="macro">populate_buffer!</span>(
+    fastq_populate_buffer,
+    noodles::fastq::reader::Records&lt;<span class="lifetime">&#39;_</span>, R&gt;,
+    Vec&lt;noodles::fastq::Record&gt;
+);
 
-    <span class="bool-val">true
-</span>}
-
-<span class="doccomment">/// Filter reads by kmer
+<span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="doccomment">/// Filter reads by kmer
 </span><span class="kw">pub fn </span>filter_reads&lt;R, W&gt;(
     <span class="kw-2">mut </span>input: R,
     output: W,
@@ -664,125 +619,92 @@
     }
 }
 
-<span class="doccomment">/// Filter fasta reads by kmer
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_fasta_reads&lt;R, W&gt;(
-    input: R,
-    output: W,
-    kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
-    kmer_size: u64,
-    min_threshold: f64,
-    max_threshold: f64,
-    stranded: bool,
-    reverse: bool,
-    record_buffer_len: u64,
-) -&gt; error::Result&lt;()&gt;
-<span class="kw">where
-    </span>R: std::io::BufRead,
-    W: std::io::Write,
-{
-    <span class="kw">let </span><span class="kw-2">mut </span>reader = noodles::fasta::Reader::new(input);
-    <span class="kw">let </span><span class="kw-2">mut </span>writer = noodles::fasta::Writer::new(output);
-    <span class="kw">let </span><span class="kw-2">mut </span>iter = reader.records();
-    <span class="kw">let </span><span class="kw-2">mut </span>records = Vec::with_capacity(record_buffer_len <span class="kw">as </span>usize);
+<span class="macro">macro_rules! </span>filter_reads {
+    ( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ident</span>, <span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$reader_type</span>:ty, <span class="macro-nonterminal">$writer_type</span>:ty, <span class="macro-nonterminal">$populate</span>:ident, <span class="macro-nonterminal">$record_ty</span>:ty) =&gt; {
+        <span class="attr">#[allow(clippy::too_many_arguments)]
+        </span><span class="doccomment">/// Filter $type reads by kmer
+        </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span><span class="macro-nonterminal">$name</span>&lt;R, W&gt;(
+            input: R,
+            output: W,
+            kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
+            kmer_size: u64,
+            min_threshold: f64,
+            max_threshold: f64,
+            stranded: bool,
+            reverse: bool,
+            record_buffer_len: u64,
+        ) -&gt; error::Result&lt;()&gt;
+        <span class="kw">where
+            </span>R: std::io::BufRead,
+            W: std::io::Write,
+        {
+            <span class="kw">let </span><span class="kw-2">mut </span>reader = &lt;<span class="macro-nonterminal">$reader_type</span>&gt;::new(input);
+            <span class="kw">let </span><span class="kw-2">mut </span>writer = &lt;<span class="macro-nonterminal">$writer_type</span>&gt;::new(output);
+            <span class="kw">let </span><span class="kw-2">mut </span>iter = reader.records();
+            <span class="kw">let </span><span class="kw-2">mut </span>records = Vec::with_capacity(record_buffer_len <span class="kw">as </span>usize);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>end = <span class="bool-val">true</span>;
-    <span class="kw">while </span>end {
-        <span class="macro">log::info!</span>(<span class="string">&quot;Start read record&quot;</span>);
-        end = fasta_populate_buffer(<span class="kw-2">&amp;mut </span>iter, <span class="kw-2">&amp;mut </span>records, record_buffer_len);
-        <span class="macro">log::info!</span>(<span class="string">&quot;End read record&quot;</span>);
-        <span class="macro">log::info!</span>(<span class="string">&quot;Populate buffer with {} record&quot;</span>, records.len());
+            <span class="kw">let </span><span class="kw-2">mut </span>end = <span class="bool-val">true</span>;
+            <span class="kw">while </span>end {
+                <span class="macro">log::info!</span>(<span class="string">&quot;Start read record&quot;</span>);
+                end = <span class="macro-nonterminal">$populate</span>(<span class="kw-2">&amp;mut </span>iter, <span class="kw-2">&amp;mut </span>records, record_buffer_len);
+                <span class="macro">log::info!</span>(<span class="string">&quot;End read record&quot;</span>);
+                <span class="macro">log::info!</span>(<span class="string">&quot;Populate buffer with {} record&quot;</span>, records.len());
 
-        <span class="kw">let </span>filterd_records: Vec&lt;<span class="kw-2">&amp;</span>noodles::fasta::Record&gt; = records
-            .par_iter()
-            .filter_map(|record| {
-                <span class="kw">let </span>norm_seq = record.sequence().as_ref().to_ascii_uppercase();
+                <span class="kw">let </span>filterd_records: <span class="macro-nonterminal">$record_ty </span>= records
+                    .par_iter()
+                    .filter_map(|record| {
+                        <span class="kw">let </span>norm_seq = record.sequence().as_ref().to_ascii_uppercase();
 
-                <span class="kw">let </span>valid_kmer = get_tokenizer(<span class="kw-2">&amp;</span>norm_seq, kmer_size, stranded, reverse)
-                    .unwrap()
-                    .filter(|kmer| kmer_counter.contains_key(kmer))
-                    .inspect(|kmer| {
-                        kmer_counter.get(kmer).unwrap().inc();
+                        <span class="kw">let </span>valid_kmer = get_tokenizer(<span class="kw-2">&amp;</span>norm_seq, kmer_size, stranded, reverse)
+                            .unwrap()
+                            .filter(|kmer| kmer_counter.contains_key(kmer))
+                            .inspect(|kmer| {
+                                kmer_counter.get(kmer).unwrap().inc();
+                            })
+                            .count() <span class="kw">as </span>f64;
+
+                        <span class="kw">let </span>total_kmer: f64 =
+                            record.sequence().len() <span class="kw">as </span>f64 - kmer_size <span class="kw">as </span>f64 + <span class="number">1.0</span>;
+                        <span class="kw">let </span>ratio: f64 = valid_kmer / total_kmer * <span class="number">100.0</span>;
+
+                        <span class="kw">if </span>ratio &gt; min_threshold &amp;&amp; ratio &lt; max_threshold {
+                            <span class="prelude-val">Some</span>(record)
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
                     })
-                    .count() <span class="kw">as </span>f64;
+                    .collect();
+                <span class="macro">log::info!</span>(<span class="string">&quot;{} filtred record&quot;</span>, filterd_records.len());
 
-                <span class="kw">let </span>total_kmer: f64 = record.sequence().len() <span class="kw">as </span>f64 - kmer_size <span class="kw">as </span>f64 + <span class="number">1.0</span>;
-                <span class="kw">let </span>ratio: f64 = valid_kmer / total_kmer * <span class="number">100.0</span>;
+                <span class="macro">log::info!</span>(<span class="string">&quot;Start write record&quot;</span>);
+                <span class="kw">for </span>record <span class="kw">in </span>filterd_records {
+                    writer.write_record(record)<span class="question-mark">?</span>;
+                }
+                <span class="macro">log::info!</span>(<span class="string">&quot;End write record&quot;</span>);
+            }
 
-                <span class="kw">if </span>ratio &gt; min_threshold &amp;&amp; ratio &lt; max_threshold {
-                    <span class="prelude-val">Some</span>(record)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>}
-            })
-            .collect();
-        <span class="macro">log::info!</span>(<span class="string">&quot;{} filtred record&quot;</span>, filterd_records.len());
-
-        <span class="macro">log::info!</span>(<span class="string">&quot;Start write record&quot;</span>);
-        <span class="kw">for </span>record <span class="kw">in </span>filterd_records {
-            writer.write_record(record)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
         }
-        <span class="macro">log::info!</span>(<span class="string">&quot;End write record&quot;</span>);
-    }
-
-    <span class="prelude-val">Ok</span>(())
+    };
 }
 
-<span class="doccomment">/// Filter fastq reads by kmer
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>filter_fastq_reads&lt;R, W&gt;(
-    input: R,
-    output: W,
-    kmer_counter: <span class="kw-2">&amp;mut </span>kmer_counter::KmerCounter,
-    kmer_size: u64,
-    min_threshold: f64,
-    max_threshold: f64,
-    stranded: bool,
-    reverse: bool,
-    record_buffer_len: u64,
-) -&gt; error::Result&lt;()&gt;
-<span class="kw">where
-    </span>R: std::io::BufRead,
-    W: std::io::Write,
-{
-    <span class="kw">let </span><span class="kw-2">mut </span>reader = noodles::fastq::Reader::new(input);
-    <span class="kw">let </span><span class="kw-2">mut </span>writer = noodles::fastq::Writer::new(output);
-    <span class="kw">let </span><span class="kw-2">mut </span>iter = reader.records();
-    <span class="kw">let </span><span class="kw-2">mut </span>records = Vec::with_capacity(record_buffer_len <span class="kw">as </span>usize);
+<span class="macro">filter_reads!</span>(
+    fasta,
+    filter_fasta_reads,
+    noodles::fasta::Reader&lt;R&gt;,
+    noodles::fasta::Writer&lt;W&gt;,
+    fasta_populate_buffer,
+    Vec&lt;<span class="kw-2">&amp;</span>noodles::fasta::Record&gt;
+);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>end = <span class="bool-val">true</span>;
-    <span class="kw">while </span>end {
-        end = fastq_populate_buffer(<span class="kw-2">&amp;mut </span>iter, <span class="kw-2">&amp;mut </span>records, record_buffer_len);
-
-        <span class="kw">let </span>filterd_records: Vec&lt;<span class="kw-2">&amp;</span>noodles::fastq::Record&gt; = records
-            .par_iter()
-            .filter_map(|record| {
-                <span class="kw">let </span>norm_seq = record.sequence().as_ref().to_ascii_uppercase();
-
-                <span class="kw">let </span>valid_kmer = get_tokenizer(<span class="kw-2">&amp;</span>norm_seq, kmer_size, stranded, reverse)
-                    .unwrap()
-                    .filter(|kmer| kmer_counter.contains_key(kmer))
-                    .inspect(|kmer| {
-                        kmer_counter.get(kmer).unwrap().inc();
-                    })
-                    .count() <span class="kw">as </span>f64;
-
-                <span class="kw">let </span>total_kmer: f64 = record.sequence().len() <span class="kw">as </span>f64 - kmer_size <span class="kw">as </span>f64 + <span class="number">1.0</span>;
-                <span class="kw">let </span>ratio: f64 = valid_kmer / total_kmer * <span class="number">100.0</span>;
-
-                <span class="kw">if </span>ratio &gt; min_threshold &amp;&amp; ratio &lt; max_threshold {
-                    <span class="prelude-val">Some</span>(record)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>}
-            })
-            .collect();
-
-        <span class="kw">for </span>record <span class="kw">in </span>filterd_records {
-            writer.write_record(record)<span class="question-mark">?</span>;
-        }
-    }
-
-    <span class="prelude-val">Ok</span>(())
-}
+<span class="macro">filter_reads!</span>(
+    fastq,
+    filter_fastq_reads,
+    noodles::fastq::Reader&lt;R&gt;,
+    noodles::fastq::Writer&lt;W&gt;,
+    fastq_populate_buffer,
+    Vec&lt;<span class="kw-2">&amp;</span>noodles::fastq::Record&gt;
+);
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
