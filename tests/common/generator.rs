@@ -88,16 +88,15 @@ pub fn fastq(rng: &mut rand::rngs::StdRng, seq_length: u64, seq_number: u64) -> 
 pub fn kmer_from_fasta(
     rng: &mut rand::rngs::StdRng,
     in_buffer: &[u8],
-    kmer_size: u64,
+    kmers_size: u64,
     kmers_number: u64,
 ) -> Vec<u8> {
     let mut kmerset =
-        KmerCounter::from_fasta_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
+        KmerCounter::from_fasta_stream(in_buffer, kmers_size, false, false, 8192).unwrap();
 
     let mut out_buffer = Vec::with_capacity(
-        (kmer_size * kmers_number // sequence space
-            + kmer_size * kmers_number // quality space
-            + kmers_number * 6 // '@' '+' and jump line space
+        (kmers_size * kmers_number // sequence space
+            + kmers_number * 3 // '>' and jump line space
 	    + (kmers_number.checked_ilog10().unwrap_or(0) as u64 + 1) * kmers_number) // sequence id space
      as usize,
     );
@@ -126,15 +125,15 @@ pub fn kmer_from_fasta(
 pub fn kmer_from_fastq(
     rng: &mut rand::rngs::StdRng,
     in_buffer: &[u8],
-    kmer_size: u64,
+    kmers_size: u64,
     kmers_number: u64,
 ) -> Vec<u8> {
     let mut kmerset =
-        KmerCounter::from_fastq_stream(in_buffer, kmer_size, false, false, 8192).unwrap();
+        KmerCounter::from_fastq_stream(in_buffer, kmers_size, false, false, 8192).unwrap();
 
     let mut out_buffer = Vec::with_capacity(
-        (kmer_size * kmers_number // sequence space
-            + kmer_size * kmers_number // quality space
+        (kmers_size * kmers_number // sequence space
+            + kmers_size * kmers_number // quality space
             + kmers_number * 6 // '@' '+' and jump line space
 	    + (kmers_number.checked_ilog10().unwrap_or(0) as u64 + 1) * kmers_number) // sequence id space
      as usize,
@@ -153,6 +152,87 @@ pub fn kmer_from_fastq(
         out_buffer.extend(b"\n");
         // Sequence
         out_buffer.extend(kmer);
+        out_buffer.extend(b"\n");
+    }
+
+    out_buffer
+}
+
+#[allow(dead_code)]
+/// Generate reads from fasta buffer
+pub fn reads_from_fasta(
+    rng: &mut rand::rngs::StdRng,
+    in_buffer: &[u8],
+    reads_size: usize,
+    reads_number: usize,
+) -> Vec<u8> {
+    let mut reader = noodles::fasta::Reader::new(in_buffer);
+
+    let mut out_buffer = Vec::with_capacity(
+        reads_size * reads_number // sequence space
+            + reads_number * 3 // '>' and jump line space
+	    + (reads_number.checked_ilog10().unwrap_or(0) as usize + 1) * reads_number, // sequence id space
+    );
+
+    let sequences = reader
+        .records()
+        .map(|record| record.unwrap().sequence().as_ref().to_vec())
+        .collect::<Vec<Vec<u8>>>();
+
+    for index in 0..reads_number {
+        let seq = sequences.choose(rng).unwrap();
+        let pos = rng.gen_range(0..(seq.len() - reads_size));
+
+        // Header
+        out_buffer.extend(b">");
+        out_buffer.extend(index.to_string().as_bytes());
+        out_buffer.extend(b"\n");
+
+        // Sequence
+        out_buffer.extend(&seq[pos..(pos + reads_size)]);
+        out_buffer.extend(b"\n");
+    }
+
+    out_buffer
+}
+
+#[allow(dead_code)]
+/// Generate reads from fasta buffer
+pub fn reads_from_fastq(
+    rng: &mut rand::rngs::StdRng,
+    in_buffer: &[u8],
+    reads_size: usize,
+    reads_number: usize,
+) -> Vec<u8> {
+    let mut reader = noodles::fasta::Reader::new(in_buffer);
+
+    let mut out_buffer = Vec::with_capacity(
+        reads_size * reads_number // sequence space
+            + reads_size * reads_number // quality space
+            + reads_number * 6 // '@' '+' and jump line space
+	    + (reads_number.checked_ilog10().unwrap_or(0) as usize + 1) * reads_number, // sequence id space
+    );
+
+    let sequences = reader
+        .records()
+        .map(|record| record.unwrap().sequence().as_ref().to_vec())
+        .collect::<Vec<Vec<u8>>>();
+
+    for index in 0..reads_number {
+        let seq = sequences.choose(rng).unwrap();
+        let pos = rng.gen_range(0..(seq.len() - reads_size));
+
+        // Header
+        out_buffer.extend(b"@");
+        out_buffer.extend(index.to_string().as_bytes());
+        out_buffer.extend(b"\n");
+        // Sequence
+        out_buffer.extend(&seq[pos..(pos + reads_size)]);
+        out_buffer.extend(b"\n");
+        // Plus
+        out_buffer.extend(b"+\n");
+        // Quality
+        out_buffer.extend(quality(rng, reads_size as u64));
         out_buffer.extend(b"\n");
     }
 

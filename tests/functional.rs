@@ -12,7 +12,7 @@ use common::*;
 
 #[test]
 fn help() -> Result<(), anyhow::Error> {
-    let mut cmd = assert_cmd::Command::cargo_bin("sequence_back").unwrap();
+    let mut cmd = assert_cmd::Command::cargo_bin("sequence_back")?;
 
     cmd.args(["-h"]);
 

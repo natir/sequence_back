@@ -47,7 +47,6 @@ assert_cmd     = { version = "2" }
 name = "kmer_counter_init"
 harness = false
 
-
 [profile.release]
 lto = 'thin'
 opt-level = 3
