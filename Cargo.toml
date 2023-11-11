@@ -37,10 +37,15 @@ log            = { version = "0.4" }
 stderrlog      = { version = "0.5" }
 
 [dev-dependencies]
-criterion      = { version = "0.4" }
+criterion      = { version = "0.5" }
 tempfile       = { version = "3" }
 rand           = { version = "0.8" }
 assert_cmd     = { version = "2" }
+
+
+[[bench]]
+name = "kmer_counter_init"
+harness = false
 
 
 [profile.release]

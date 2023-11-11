@@ -83,6 +83,7 @@ pub fn fastq(rng: &mut rand::rngs::StdRng, seq_length: u64, seq_number: u64) -> 
     output
 }
 
+#[allow(dead_code)]
 /// Generate kmer from fasta buffer
 pub fn kmer_from_fasta(
     rng: &mut rand::rngs::StdRng,
@@ -120,6 +121,7 @@ pub fn kmer_from_fasta(
     out_buffer
 }
 
+#[allow(dead_code)]
 /// Generate kmer from fastq buffer
 pub fn kmer_from_fastq(
     rng: &mut rand::rngs::StdRng,
